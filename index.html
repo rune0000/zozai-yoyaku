@@ -28,7 +28,7 @@
         .btn-secondary { background-color: #6c757d; color: white; }
         .btn-danger { background-color: #dc3545; color: white; padding: 8px 12px; font-size: 12px; }
         .item-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #e9ecef; }
-        .item-select { flex: 2; }
+        .item-select { flex: 2; font-weight: bold; }
         .qty-input { flex: 1; }
         .note { font-size: 12px; color: #6c757d; margin-top: 6px; }
         #shop-info-alert { display: none; padding: 15px; margin-bottom: 25px; border-radius: 4px; font-size: 14px; font-weight: bold; }
@@ -76,8 +76,6 @@
                     <label>📞 FiveM内番号 (電話番号・市民IDなど)</label>
                     <input type="text" id="fivem-number" placeholder="例: 123-4567" required>
                 </div>
-
-                <!-- 希望日時の入力欄を削除しました -->
 
                 <div class="form-group">
                     <label>📦 購入するアイテムと個数</label>
@@ -154,7 +152,15 @@
             row.className = 'item-row';
             
             let options = '<option value="">-- アイテムを選択 --</option>';
-            availableItems.forEach(item => { options += `<option value="${item}">${item}</option>`; });
+            availableItems.forEach(item => { 
+                // オブジェクトとして価格が含まれている場合の処理
+                if (typeof item === 'object' && item.name) {
+                    options += `<option value="${item.name}">${item.name} (${(item.price || 0).toLocaleString()}円)</option>`;
+                } else {
+                    // 古いデータ形式が残っていた場合の対応
+                    options += `<option value="${item}">${item}</option>`;
+                }
+            });
             
             row.innerHTML = `
                 <select class="item-select item-name">${options}</select>
