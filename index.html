@@ -9,7 +9,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9ecef; margin: 0; color: #333; }
-        .header { background-color: #343a40; color: white; padding: 15px 20px; font-size: 18px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 10px; }
+        .header { background-color: #343a40; color: white; padding: 15px 20px; font-size: 18px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .header-btn { background-color: #198754; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .header-btn:hover { background-color: #157347; }
         .container { max-width: 600px; margin: 30px auto; padding: 0 15px; }
         .card { background: white; border: 1px solid #dee2e6; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
         .card-header { background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 15px 20px; font-weight: bold; font-size: 16px; color: #495057; display: flex; justify-content: space-between; align-items: center; }
@@ -34,20 +36,24 @@
         #shop-info-alert { display: none; padding: 15px; margin-bottom: 25px; border-radius: 4px; font-size: 14px; font-weight: bold; }
         .alert-success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
         .alert-danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
-        #reservation-form { display: none; }
+        .rank-badge { font-size: 11px; background-color: #e9ecef; padding: 4px 8px; border-radius: 20px; color: #495057; display: inline-block; font-weight: bold; }
+        .type-badge { font-size: 11px; background-color: #fff3cd; padding: 4px 8px; border-radius: 20px; color: #856404; display: inline-block; font-weight: bold; margin-right: 5px;}
+
+        /* モーダル */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 320px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <span>📋</span> 商品予約システム
+        <div><span>📋</span> 商品予約システム</div>
+        <button class="header-btn" onclick="openRegisterModal()">📝 新規登録</button>
     </div>
 
     <div class="container">
         <div class="card">
-            <div class="card-header">
-                店舗へ接続
-            </div>
+            <div class="card-header">店舗へ接続</div>
             <div class="card-body">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>🔑 店舗の予約受付ID (5桁)</label>
@@ -62,26 +68,29 @@
 
         <div id="shop-info-alert"></div>
 
-        <div class="card" id="reservation-form" style="margin-top: 20px;">
-            <div class="card-header">
-                予約情報の入力
-            </div>
+        <div class="card" id="reservation-form" style="display: none; margin-top: 20px;">
+            <div class="card-header">予約情報の入力</div>
             <div class="card-body">
+                
+                <div class="form-group">
+                    <label>💳 市民ID 
+                        <span style="float: right;">
+                            <span class="type-badge" id="type-display" style="display:none;">属性未確認</span>
+                            <span class="rank-badge" id="rank-display">会員ステータス未確認</span>
+                        </span>
+                    </label>
+                    <input type="text" id="citizen-id" placeholder="市民ID(下4桁など)を入力" required oninput="checkCustomerRank()">
+                    <div class="note">※入力すると自動で会員ランクと専用価格が反映され、名前が自動入力されます。</div>
+                </div>
+
                 <div class="form-group">
                     <label>👤 お名前 (キャラクター名)</label>
                     <input type="text" id="customer-name" placeholder="お名前を入力" required>
                 </div>
 
                 <div class="form-group">
-                    <label>📞 FiveM内番号 (電話番号・市民IDなど)</label>
-                    <input type="text" id="fivem-number" placeholder="例: 123-4567" required>
-                </div>
-
-                <div class="form-group">
                     <label>📦 購入するアイテムと個数</label>
-                    <div id="items-container">
-                        <!-- ここにアイテム選択行が追加されます -->
-                    </div>
+                    <div id="items-container"></div>
                     <button type="button" class="btn btn-secondary" style="margin-top: 10px; width: 100%;" onclick="addItemRow()">＋ 購入アイテムを追加する</button>
                 </div>
 
@@ -92,6 +101,40 @@
 
                 <button id="submit-btn" class="btn btn-success" onclick="sendReservation()">予約を送信する</button>
                 <div id="loading" style="display:none; text-align:center; font-weight:bold; color:#0d6efd; margin-top:15px;">送信中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新規登録モーダル -->
+    <div id="register-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color: #198754;">📝 新規顧客登録</h3>
+            <div class="note" style="margin-bottom:15px;">初めてご利用の方は、こちらから店舗へ情報を送信してください。</div>
+            
+            <div class="form-group">
+                <label>🔑 店舗の予約受付ID</label>
+                <input type="text" id="reg-shop-id" placeholder="5桁の数字" maxlength="5">
+            </div>
+            <div class="form-group">
+                <label>💳 市民ID (下4桁など)</label>
+                <input type="text" id="reg-citizen-id" placeholder="例: 1234">
+            </div>
+            <div class="form-group">
+                <label>👤 お名前 (キャラクター名)</label>
+                <input type="text" id="reg-name" placeholder="お名前を入力">
+            </div>
+            <div class="form-group">
+                <label>🏷️ 顧客属性</label>
+                <select id="reg-type">
+                    <option value="white">白市民</option>
+                    <option value="black">黒市民</option>
+                    <option value="corp">法人</option>
+                </select>
+            </div>
+            
+            <div style="margin-top:25px; display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeModal('register-modal')" style="width:auto;">キャンセル</button>
+                <button class="btn btn-primary" onclick="sendNewCustomer()" style="width:auto; background-color:#198754;">登録申請する</button>
             </div>
         </div>
     </div>
@@ -108,42 +151,143 @@
         };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
+        
         let availableItems = [];
+        let shopCustomers = {};
+        let customRanks = [];
+        
+        let currentCustomerRankId = 'rank_none';
+        let currentCustomerType = 'white'; // デフォルトは白
+        let currentLimit = Infinity; 
+
+        // モーダル操作
+        function openRegisterModal() {
+            const currentShopId = document.getElementById('shop-id').value;
+            if (currentShopId) document.getElementById('reg-shop-id').value = currentShopId;
+            document.getElementById('register-modal').style.display = 'flex';
+        }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // 新規登録を送信
+        async function sendNewCustomer() {
+            const shopId = document.getElementById('reg-shop-id').value.trim();
+            const citizenId = document.getElementById('reg-citizen-id').value.trim();
+            const name = document.getElementById('reg-name').value.trim();
+            const type = document.getElementById('reg-type').value;
+
+            if (!/^\d{5}$/.test(shopId)) return alert("店舗IDは5桁の数字を入力してください。");
+            if (!citizenId || !name) return alert("すべての項目を入力してください。");
+
+            try {
+                // POS側で監視している public_new_customers へリクエストを投げる
+                await database.ref('public_new_customers/' + shopId).push({
+                    citizenId: citizenId, name: name, type: type, timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                alert("登録申請を送信しました！店舗側で確認され次第、市民IDを入力して予約が可能になります。");
+                document.getElementById('shop-id').value = shopId;
+                closeModal('register-modal');
+            } catch(e) { alert("送信に失敗しました"); }
+        }
 
         async function connectToShop() {
             const shopId = document.getElementById('shop-id').value.trim();
             if (!/^\d{5}$/.test(shopId)) return alert("5桁の数字を入力してください。");
-            
             document.getElementById('btn-connect').innerText = "接続中...";
-            
             try {
                 const snap = await database.ref('public_shop_info/' + shopId).once('value');
                 const shopInfo = snap.val();
-                
                 const alertBox = document.getElementById('shop-info-alert');
                 const formBox = document.getElementById('reservation-form');
-                
                 if (!shopInfo) {
-                    alertBox.className = 'alert-danger';
-                    alertBox.innerHTML = "❌ 店舗が見つかりません。IDを確認してください。";
+                    alertBox.className = 'alert-danger'; alertBox.innerHTML = "❌ 店舗が見つかりません。";
                     alertBox.style.display = 'block'; formBox.style.display = 'none';
                 } else if (shopInfo.status === 'maintenance') {
-                    alertBox.className = 'alert-danger';
-                    alertBox.innerHTML = `🚧 店舗「${shopInfo.name}」は現在メンテナンス中（予約受付停止）です。`;
+                    alertBox.className = 'alert-danger'; alertBox.innerHTML = `🚧 店舗「${shopInfo.name}」は現在メンテナンス中（予約受付停止）です。`;
                     alertBox.style.display = 'block'; formBox.style.display = 'none';
                 } else {
-                    alertBox.className = 'alert-success';
-                    alertBox.innerHTML = `✅ 店舗「${shopInfo.name}」に接続しました。入力へ進んでください。`;
+                    alertBox.className = 'alert-success'; alertBox.innerHTML = `✅ 店舗「${shopInfo.name}」に接続しました。`;
                     alertBox.style.display = 'block';
                     
                     availableItems = shopInfo.items || [];
+                    shopCustomers = shopInfo.customers || {};
+                    customRanks = shopInfo.customRanks || [];
+                    
                     document.getElementById('items-container').innerHTML = '';
+                    checkCustomerRank(); // 顧客判定（アイテム追加より先に行い、価格帯を確定させる）
                     addItemRow();
                     formBox.style.display = 'block';
                 }
             } catch(e) { alert("通信エラーが発生しました。"); }
-            
             document.getElementById('btn-connect').innerText = "店舗情報を取得";
+        }
+
+        function checkCustomerRank() {
+            const cid = document.getElementById('citizen-id').value.trim();
+            let rankId = 'rank_none';
+            let cusName = '';
+            let type = 'white'; // 未登録時のデフォルト
+
+            if (cid && shopCustomers[cid]) {
+                rankId = shopCustomers[cid].rank || 'rank_none';
+                cusName = shopCustomers[cid].name || '';
+                type = shopCustomers[cid].type || 'white';
+            }
+            currentCustomerRankId = rankId;
+            currentCustomerType = type;
+
+            const nameInput = document.getElementById('customer-name');
+            if (cusName && !nameInput.value) nameInput.value = cusName;
+            else if (cusName && nameInput.value && nameInput.value !== cusName) nameInput.value = cusName;
+            
+            const rankDef = customRanks.find(r => r.id === rankId) || { name: '未登録(一般客)', limit: '' };
+            currentLimit = (rankDef.limit === '' || rankDef.limit === undefined) ? Infinity : parseInt(rankDef.limit);
+            
+            const limitText = currentLimit === Infinity ? '無制限' : `${currentLimit}個`;
+            
+            const typeBadge = document.getElementById('type-display');
+            const typeLabels = { 'white': '白市民', 'black': '黒市民', 'corp': '法人' };
+            typeBadge.innerText = typeLabels[type];
+            typeBadge.style.display = 'inline-block';
+
+            const badge = document.getElementById('rank-display');
+            badge.innerText = `[${rankDef.name}] 1種類上限: ${limitText}`;
+            badge.style.backgroundColor = rankId === 'rank_none' ? '#e9ecef' : '#fff3cd';
+            badge.style.color = rankId === 'rank_none' ? '#495057' : '#856404';
+
+            // プルダウンの価格を再描画する
+            document.querySelectorAll('.item-row').forEach(row => {
+                const select = row.querySelector('.item-name');
+                const prevVal = select.value;
+                updateSelectOptions(select);
+                select.value = prevVal; // 選択状態を復元
+            });
+
+            document.querySelectorAll('.item-qty').forEach(input => enforceLimit(input));
+        }
+
+        function enforceLimit(input) {
+            if (currentLimit !== Infinity && input.value !== "") {
+                let val = parseInt(input.value);
+                if (val > currentLimit) {
+                    const rankDef = customRanks.find(r => r.id === currentCustomerRankId) || { name: '一般客' };
+                    alert(`会員ランク(${rankDef.name})では、最大 ${currentLimit} 個までしか購入できません。`);
+                    input.value = currentLimit;
+                }
+            }
+        }
+
+        // アイテムセレクトボックスの中身を作る
+        function updateSelectOptions(selectElement) {
+            let options = '<option value="">-- アイテムを選択 --</option>';
+            availableItems.forEach(item => { 
+                let price = 0;
+                if (currentCustomerType === 'white') price = item.priceWhite || 0;
+                else if (currentCustomerType === 'black') price = item.priceBlack || 0;
+                else if (currentCustomerType === 'corp') price = item.priceCorp || 0;
+                
+                options += `<option value="${item.name}">${item.name} (${price.toLocaleString()}円)</option>`;
+            });
+            selectElement.innerHTML = options;
         }
 
         function addItemRow() {
@@ -151,39 +295,42 @@
             const row = document.createElement('div');
             row.className = 'item-row';
             
-            let options = '<option value="">-- アイテムを選択 --</option>';
-            availableItems.forEach(item => { 
-                // オブジェクトとして価格が含まれている場合の処理
-                if (typeof item === 'object' && item.name) {
-                    options += `<option value="${item.name}">${item.name} (${(item.price || 0).toLocaleString()}円)</option>`;
-                } else {
-                    // 古いデータ形式が残っていた場合の対応
-                    options += `<option value="${item}">${item}</option>`;
-                }
-            });
-            
             row.innerHTML = `
-                <select class="item-select item-name">${options}</select>
-                <input type="number" class="qty-input item-qty" placeholder="個数" min="1">
+                <select class="item-select item-name"></select>
+                <input type="number" class="qty-input item-qty" placeholder="個数" min="1" oninput="enforceLimit(this)">
                 <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">削除</button>
             `;
+            updateSelectOptions(row.querySelector('.item-name'));
             container.appendChild(row);
         }
 
         async function sendReservation() {
             const shopId = document.getElementById('shop-id').value.trim();
+            const citizenId = document.getElementById('citizen-id').value.trim();
             const name = document.getElementById('customer-name').value.trim();
-            const fivemNumber = document.getElementById('fivem-number').value.trim();
             const note = document.getElementById('reserve-note').value.trim();
 
+            if (!citizenId) return alert("市民IDを入力してください。");
             if (!name) return alert("お名前を入力してください。");
-            if (!fivemNumber) return alert("FiveM内番号を入力してください。");
 
             let itemsDetail = [];
+            let totalAmount = 0;
+
             document.querySelectorAll('.item-row').forEach(row => {
                 const iName = row.querySelector('.item-name').value;
-                const iQty = row.querySelector('.item-qty').value;
-                if (iName && iQty) itemsDetail.push(`・${iName} x ${iQty}個`);
+                const iQty = parseInt(row.querySelector('.item-qty').value) || 0;
+                
+                if (iName && iQty > 0) {
+                    const itemObj = availableItems.find(i => i.name === iName);
+                    let price = 0;
+                    if (itemObj) {
+                        if (currentCustomerType === 'white') price = itemObj.priceWhite || 0;
+                        else if (currentCustomerType === 'black') price = itemObj.priceBlack || 0;
+                        else if (currentCustomerType === 'corp') price = itemObj.priceCorp || 0;
+                    }
+                    totalAmount += (price * iQty);
+                    itemsDetail.push(`・${iName} x ${iQty}個`);
+                }
             });
             if (itemsDetail.length === 0) return alert("購入するアイテムを1つ以上選択・入力してください。");
 
@@ -195,7 +342,10 @@
             const reserveData = {
                 createdAt: firebase.database.ServerValue.TIMESTAMP,
                 name: name,
-                fivemNumber: fivemNumber,
+                citizenId: citizenId,
+                rankId: currentCustomerRankId,
+                type: currentCustomerType,
+                totalAmount: totalAmount,
                 detail: detailText,
                 status: 'new'
             };
