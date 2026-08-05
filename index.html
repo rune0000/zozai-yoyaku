@@ -36,6 +36,8 @@
         #shop-info-alert { display: none; padding: 15px; margin-bottom: 25px; border-radius: 4px; font-size: 14px; font-weight: bold; }
         .alert-success { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
         .alert-danger { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+        #reservation-form { display: none; }
+        
         .rank-badge { font-size: 11px; background-color: #e9ecef; padding: 4px 8px; border-radius: 20px; color: #495057; display: inline-block; font-weight: bold; }
         .type-badge { font-size: 11px; background-color: #fff3cd; padding: 4px 8px; border-radius: 20px; color: #856404; display: inline-block; font-weight: bold; margin-right: 5px;}
 
@@ -124,6 +126,10 @@
                 <input type="text" id="reg-name" placeholder="お名前を入力">
             </div>
             <div class="form-group">
+                <label>📞 電話番号</label>
+                <input type="text" id="reg-phone" placeholder="例: 123-4567">
+            </div>
+            <div class="form-group">
                 <label>🏷️ 顧客属性</label>
                 <select id="reg-type">
                     <option value="white">白市民</option>
@@ -157,7 +163,7 @@
         let customRanks = [];
         
         let currentCustomerRankId = 'rank_none';
-        let currentCustomerType = 'white'; // デフォルトは白
+        let currentCustomerType = 'white'; 
         let currentLimit = Infinity; 
 
         // モーダル操作
@@ -173,15 +179,16 @@
             const shopId = document.getElementById('reg-shop-id').value.trim();
             const citizenId = document.getElementById('reg-citizen-id').value.trim();
             const name = document.getElementById('reg-name').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
             const type = document.getElementById('reg-type').value;
 
             if (!/^\d{5}$/.test(shopId)) return alert("店舗IDは5桁の数字を入力してください。");
-            if (!citizenId || !name) return alert("すべての項目を入力してください。");
+            if (!citizenId || !name || !phone) return alert("すべての項目を入力してください。");
 
             try {
                 // POS側で監視している public_new_customers へリクエストを投げる
                 await database.ref('public_new_customers/' + shopId).push({
-                    citizenId: citizenId, name: name, type: type, timestamp: firebase.database.ServerValue.TIMESTAMP
+                    citizenId: citizenId, name: name, phone: phone, type: type, timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
                 alert("登録申請を送信しました！店舗側で確認され次第、市民IDを入力して予約が可能になります。");
                 document.getElementById('shop-id').value = shopId;
@@ -213,7 +220,7 @@
                     customRanks = shopInfo.customRanks || [];
                     
                     document.getElementById('items-container').innerHTML = '';
-                    checkCustomerRank(); // 顧客判定（アイテム追加より先に行い、価格帯を確定させる）
+                    checkCustomerRank(); 
                     addItemRow();
                     formBox.style.display = 'block';
                 }
@@ -225,7 +232,7 @@
             const cid = document.getElementById('citizen-id').value.trim();
             let rankId = 'rank_none';
             let cusName = '';
-            let type = 'white'; // 未登録時のデフォルト
+            let type = 'white'; 
 
             if (cid && shopCustomers[cid]) {
                 rankId = shopCustomers[cid].rank || 'rank_none';
@@ -254,12 +261,11 @@
             badge.style.backgroundColor = rankId === 'rank_none' ? '#e9ecef' : '#fff3cd';
             badge.style.color = rankId === 'rank_none' ? '#495057' : '#856404';
 
-            // プルダウンの価格を再描画する
             document.querySelectorAll('.item-row').forEach(row => {
                 const select = row.querySelector('.item-name');
                 const prevVal = select.value;
                 updateSelectOptions(select);
-                select.value = prevVal; // 選択状態を復元
+                select.value = prevVal; 
             });
 
             document.querySelectorAll('.item-qty').forEach(input => enforceLimit(input));
@@ -276,7 +282,6 @@
             }
         }
 
-        // アイテムセレクトボックスの中身を作る
         function updateSelectOptions(selectElement) {
             let options = '<option value="">-- アイテムを選択 --</option>';
             availableItems.forEach(item => { 
