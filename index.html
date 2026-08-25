@@ -174,7 +174,6 @@
                 <div class="note">予約が送信された際、このURL宛に自動で通知を飛ばします。</div>
             </div>
 
-            <!-- ★追加：新規登録通知用Webhook -->
             <div class="form-group">
                 <label>🔗 新規登録通知用 Discord Webhook</label>
                 <input type="password" id="conf-reg-webhook" placeholder="https://discord.com/api/webhooks/...">
@@ -197,7 +196,7 @@
     <!-- テンプレート一覧モーダル -->
     <div id="template-modal" class="modal-overlay">
         <div class="modal-content" style="width: 360px;">
-            <h3 style="margin-top:0; color: #0d6efd;">☁️ マイテンプレート一覧</h3>
+            <h3 style="margin-top:0; color: #0d6efd;">☁️ マイテンプレート呼出</h3>
             <div class="note" style="margin-bottom:10px;">適用したいテンプレートを選んでください。</div>
             
             <div id="template-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 10px;">
@@ -206,6 +205,32 @@
             
             <div style="display:flex; justify-content:flex-end;">
                 <button class="btn btn-secondary" onclick="closeModal('template-modal')" style="width:auto;">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ★テンプレート保存・上書きモーダル -->
+    <div id="template-save-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 360px;">
+            <h3 style="margin-top:0; color: #0d6efd;">💾 テンプレートの保存</h3>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>✨ 新しく保存する</label>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="new-template-name" placeholder="新しい名前 (例: 武器セット)">
+                    <button class="btn btn-primary" style="padding: 8px;" onclick="createNewTemplate()">保存</button>
+                </div>
+            </div>
+
+            <div style="margin: 20px 0; border-bottom: 1px dashed #ccc;"></div>
+
+            <label style="color: #6c757d; font-size:12px; font-weight:bold;">🔄 既存のテンプレートを上書き</label>
+            <div id="template-overwrite-list" style="max-height: 150px; overflow-y: auto; margin-top: 5px; border: 1px solid #eee; padding: 5px; border-radius: 4px; background: #fcfcfc;">
+                <!-- 上書き可能なリスト -->
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; margin-top: 15px;">
+                <button class="btn btn-secondary" onclick="closeModal('template-save-modal')" style="width:auto;">キャンセル</button>
             </div>
         </div>
     </div>
@@ -271,6 +296,7 @@
         
         let shopHistory = JSON.parse(localStorage.getItem('rsv_app_history')) || [];
         let currentTemplates = []; 
+        let tempItemsToSave = []; // テンプレート保存用の一時データ
 
         // ★クラウド共有される全体設定
         let globalConfig = { shopId: "", webhook: "", regWebhook: "", password: "0000" };
@@ -354,6 +380,48 @@
             }
         }
 
+        // --- ★ローカルテンプレのクラウド移行関数 ---
+        async function migrateLocalTemplates(cid) {
+            let migrated = false;
+            let templates = [];
+            
+            const snap = await database.ref('public_customer_templates/' + cid).once('value');
+            const data = snap.val();
+            if (data) {
+                Object.keys(data).forEach(key => templates.push(data[key]));
+            }
+
+            const oldSavedSingle = localStorage.getItem('rsv_template_' + cid);
+            if (oldSavedSingle) {
+                const oldData = JSON.parse(oldSavedSingle);
+                if (oldData.length > 0) {
+                    const newId = 'tpl_' + Date.now() + Math.floor(Math.random()*1000);
+                    await database.ref('public_customer_templates/' + cid + '/' + newId).set({ id: newId, name: '以前のテンプレート', items: oldData });
+                    templates.push({ id: newId, name: '以前のテンプレート', items: oldData });
+                }
+                localStorage.removeItem('rsv_template_' + cid);
+                migrated = true;
+            }
+
+            const oldSavedMulti = localStorage.getItem('rsv_templates_' + cid);
+            if (oldSavedMulti) {
+                const localTpls = JSON.parse(oldSavedMulti);
+                for (let t of localTpls) {
+                    const newId = 'tpl_' + Date.now() + Math.floor(Math.random()*1000);
+                    await database.ref('public_customer_templates/' + cid + '/' + newId).set({ id: newId, name: t.name, items: t.items });
+                    templates.push({ id: newId, name: t.name, items: t.items });
+                }
+                localStorage.removeItem('rsv_templates_' + cid);
+                migrated = true;
+            }
+
+            if (migrated && templates.length > 0) {
+                alert("💡 この端末に保存されていた過去のテンプレートをクラウドに自動移行しました！");
+            }
+            
+            return templates;
+        }
+
         // --- ★テンプレート（クラウド保存）機能 ---
         async function saveTemplate() {
             const cid = document.getElementById('citizen-id').value.trim();
@@ -382,20 +450,66 @@
             if (hasDuplicate) return alert("❌ 同じアイテムが複数回選択されています。\n1つの行にまとめて個数を入力してから保存してください。");
             if (templateItems.length === 0) return alert("保存するアイテムがありません。");
 
-            const tName = prompt("このテンプレートの名前を入力してください:\n(例: いつもの武器セット, 回復用など)");
-            if (!tName || tName.trim() === "") return;
+            tempItemsToSave = templateItems; // 一時保存
+
+            try {
+                // クラウドから既存テンプレを取得し、ローカルデータがあれば移行する
+                const templates = await migrateLocalTemplates(cid);
+
+                const overwriteList = document.getElementById('template-overwrite-list');
+                overwriteList.innerHTML = '';
+                if(templates.length === 0) {
+                    overwriteList.innerHTML = '<div style="font-size:12px; color:#999; text-align:center; padding:10px 0;">上書きできるテンプレートがありません</div>';
+                } else {
+                    templates.forEach(t => {
+                        const div = document.createElement('div');
+                        div.className = 'history-item';
+                        div.style.padding = "5px 10px";
+                        div.innerHTML = `
+                            <span style="font-weight: bold; color: #333; font-size: 13px;">${t.name}</span>
+                            <button class="btn btn-danger" style="background-color:#fd7e14; padding: 4px 8px; font-size: 11px;" onclick="overwriteTemplate('${cid}', '${t.id}', '${t.name}')">上書き</button>
+                        `;
+                        overwriteList.appendChild(div);
+                    });
+                }
+
+                document.getElementById('new-template-name').value = '';
+                document.getElementById('template-save-modal').style.display = 'flex';
+            } catch(e) {
+                alert("データの取得に失敗しました");
+            }
+        }
+
+        async function createNewTemplate() {
+            const cid = document.getElementById('citizen-id').value.trim();
+            const tName = document.getElementById('new-template-name').value.trim();
+            if (!tName) return alert("名前を入力してください。");
 
             const tplId = 'tpl_' + Date.now();
             try {
-                // クラウドへ保存
                 await database.ref('public_customer_templates/' + cid + '/' + tplId).set({
                     id: tplId,
-                    name: tName.trim(),
-                    items: templateItems
+                    name: tName,
+                    items: tempItemsToSave
                 });
-                alert(`✅ テンプレート「${tName}」をクラウドに保存しました！\n別の端末でも市民IDを入力すれば呼び出せます。`);
+                alert(`✅ テンプレート「${tName}」を新しく保存しました！`);
+                closeModal('template-save-modal');
             } catch(e) {
                 alert("保存に失敗しました。");
+            }
+        }
+
+        async function overwriteTemplate(cid, tplId, tName) {
+            if (!confirm(`テンプレート「${tName}」を現在の内容で上書きしますか？`)) return;
+
+            try {
+                await database.ref('public_customer_templates/' + cid + '/' + tplId).update({
+                    items: tempItemsToSave
+                });
+                alert(`✅ テンプレート「${tName}」を上書き保存しました！`);
+                closeModal('template-save-modal');
+            } catch(e) {
+                alert("上書き保存に失敗しました。");
             }
         }
 
@@ -404,44 +518,7 @@
             if (!cid) return alert("先に市民IDを入力してください。");
 
             try {
-                // クラウドからテンプレート一覧を取得
-                const snap = await database.ref('public_customer_templates/' + cid).once('value');
-                const data = snap.val();
-                let templates = [];
-                if (data) {
-                    Object.keys(data).forEach(key => templates.push(data[key]));
-                }
-
-                // 過去にローカル保存していたテンプレがあれば、クラウドへ自動移行する
-                let localChanged = false;
-                const oldSavedSingle = localStorage.getItem('rsv_template_' + cid);
-                if (oldSavedSingle) {
-                    const oldData = JSON.parse(oldSavedSingle);
-                    if (oldData.length > 0) {
-                        const newId = 'tpl_' + Date.now() + Math.floor(Math.random()*1000);
-                        await database.ref('public_customer_templates/' + cid + '/' + newId).set({ id: newId, name: '以前のテンプレート', items: oldData });
-                        templates.push({ id: newId, name: '以前のテンプレート', items: oldData });
-                    }
-                    localStorage.removeItem('rsv_template_' + cid);
-                    localChanged = true;
-                }
-
-                const oldSavedMulti = localStorage.getItem('rsv_templates_' + cid);
-                if (oldSavedMulti) {
-                    const localTpls = JSON.parse(oldSavedMulti);
-                    for (let t of localTpls) {
-                        const newId = 'tpl_' + Date.now() + Math.floor(Math.random()*1000);
-                        await database.ref('public_customer_templates/' + cid + '/' + newId).set({ id: newId, name: t.name, items: t.items });
-                        templates.push({ id: newId, name: t.name, items: t.items });
-                    }
-                    localStorage.removeItem('rsv_templates_' + cid);
-                    localChanged = true;
-                }
-
-                if (localChanged && templates.length > 0) {
-                    alert("💡 この端末に保存されていたテンプレートをクラウドに移行しました！");
-                }
-
+                const templates = await migrateLocalTemplates(cid);
                 if (templates.length === 0) return alert("保存されているテンプレートがありません。\n先に「テンプレ保存」で追加してください。");
 
                 renderTemplateList(templates, cid);
@@ -732,7 +809,6 @@
             let itemsDetail = [];
             let totalAmount = 0;
             
-            // ★重複チェック
             let selectedItemNames = new Set();
             let hasDuplicate = false;
 
