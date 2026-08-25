@@ -12,6 +12,11 @@
         .header { background-color: #343a40; color: white; padding: 15px 20px; font-size: 18px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
         .header-btn { background-color: #198754; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer; }
         .header-btn:hover { background-color: #157347; }
+        
+        /* ベルマークアイコン */
+        .bell-icon-wrapper { position: relative; cursor: pointer; font-size: 24px; margin-right: 15px; display: flex; align-items: center; justify-content: center; }
+        .bell-badge { position: absolute; top: -5px; right: -8px; background-color: #dc3545; color: white; font-size: 11px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.2); display: none; }
+
         .container { max-width: 600px; margin: 30px auto; padding: 0 15px; }
         .card { background: white; border: 1px solid #dee2e6; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
         .card-header { background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 15px 20px; font-weight: bold; font-size: 16px; color: #495057; display: flex; justify-content: space-between; align-items: center; }
@@ -42,15 +47,7 @@
         .type-badge { font-size: 11px; background-color: #fff3cd; padding: 4px 8px; border-radius: 20px; color: #856404; display: inline-block; font-weight: bold; margin-right: 5px;}
 
         /* 左下の歯車ボタン */
-        .config-btn {
-            position: fixed; bottom: 20px; left: 20px;
-            background-color: #343a40; color: white;
-            width: 45px; height: 45px; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center;
-            font-size: 20px; cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 100;
-            transition: 0.3s;
-        }
+        .config-btn { position: fixed; bottom: 20px; left: 20px; background-color: #343a40; color: white; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 100; transition: 0.3s; }
         .config-btn:hover { background-color: #495057; transform: scale(1.1); }
 
         /* リスト項目用CSS */
@@ -61,6 +58,14 @@
         .btn-edit { background: #ffc107; color: #000; }
         .btn-del { background: #dc3545; color: #fff; }
 
+        /* 予約履歴用CSS */
+        .rsv-item { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin-bottom: 15px; font-size: 13px; }
+        .rsv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: bold; border-bottom: 1px dashed #ccc; padding-bottom: 8px;}
+        .rsv-status-new { color: #856404; background: #ffeeba; padding: 4px 8px; border-radius: 4px; font-size: 11px;}
+        .rsv-status-doing { color: #004085; background: #b8daff; padding: 4px 8px; border-radius: 4px; font-size: 11px;}
+        .rsv-status-done { color: #155724; background: #c3e6cb; padding: 4px 8px; border-radius: 4px; font-size: 11px;}
+        .rsv-reply { background: #e6f2ff; border-left: 4px solid #0d6efd; padding: 12px; margin-top: 12px; border-radius: 0 4px 4px 0; }
+
         /* モーダル */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 8px; width: 340px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto;}
@@ -70,7 +75,13 @@
 
     <div class="header">
         <div><span>📋</span> 商品予約システム</div>
-        <button class="header-btn" onclick="openRegisterModal()">📝 新規登録</button>
+        <div style="display:flex; align-items:center;">
+            <!-- ★ ベルマーク -->
+            <div class="bell-icon-wrapper" onclick="openBroadcastModal()">
+                🔔<div class="bell-badge" id="bell-badge">0</div>
+            </div>
+            <button class="header-btn" onclick="openRegisterModal()">📝 新規登録</button>
+        </div>
     </div>
 
     <div class="container">
@@ -80,7 +91,7 @@
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>🔑 店舗の予約受付ID (5桁)</label>
                     <div class="id-group">
-                        <input type="text" id="shop-id" class="id-input" placeholder="例: 12345" maxlength="5">
+                        <input type="text" id="shop-id" class="id-input" placeholder="例: 12345" maxlength="5" oninput="onShopIdInput()">
                         <button class="btn btn-primary" id="btn-connect" onclick="connectToShop()">接続</button>
                     </div>
                     
@@ -95,6 +106,7 @@
 
         <div id="shop-info-alert"></div>
 
+        <!-- 予約フォーム -->
         <div class="card" id="reservation-form" style="display: none; margin-top: 20px;">
             <div class="card-header">予約情報の入力</div>
             <div class="card-body">
@@ -136,6 +148,14 @@
 
                 <button id="submit-btn" class="btn btn-success" onclick="sendReservation()">予約を送信する</button>
                 <div id="loading" style="display:none; text-align:center; font-weight:bold; color:#0d6efd; margin-top:15px;">送信中...</div>
+            </div>
+        </div>
+
+        <!-- 自分の予約履歴・店員からの返信メッセージ表示エリア -->
+        <div class="card" id="my-reservations-card" style="display: none; margin-top: 20px;">
+            <div class="card-header" style="background-color: #e9ecef; border-bottom: 1px solid #dee2e6;">📅 あなたの予約・注文履歴</div>
+            <div class="card-body" id="my-reservations-list" style="max-height: 500px; overflow-y: auto; padding: 15px;">
+                <!-- ここに予約履歴が挿入されます -->
             </div>
         </div>
     </div>
@@ -193,27 +213,35 @@
         </div>
     </div>
 
+    <!-- ★ お知らせ一覧表示モーダル -->
+    <div id="broadcast-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 380px;">
+            <h3 style="margin-top:0; color: #ff9800;">📢 店舗からのお知らせ</h3>
+            <div id="broadcast-list" style="max-height: 350px; overflow-y: auto; border: 1px solid #ccc; padding: 15px; border-radius: 4px; background: #f8f9fa;">
+                <!-- ここにお知らせリストが展開される -->
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-top: 15px;">
+                <button class="btn-secondary" onclick="closeModal('broadcast-modal')" style="width:auto;">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <!-- テンプレート一覧モーダル -->
     <div id="template-modal" class="modal-overlay">
         <div class="modal-content" style="width: 360px;">
             <h3 style="margin-top:0; color: #0d6efd;">☁️ マイテンプレート呼出</h3>
             <div class="note" style="margin-bottom:10px;">適用したいテンプレートを選んでください。</div>
-            
-            <div id="template-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-                <!-- ここにテンプレート一覧が展開される -->
-            </div>
-            
+            <div id="template-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 10px;"></div>
             <div style="display:flex; justify-content:flex-end;">
                 <button class="btn btn-secondary" onclick="closeModal('template-modal')" style="width:auto;">閉じる</button>
             </div>
         </div>
     </div>
 
-    <!-- ★テンプレート保存・上書きモーダル -->
+    <!-- テンプレート保存・上書きモーダル -->
     <div id="template-save-modal" class="modal-overlay">
         <div class="modal-content" style="width: 360px;">
             <h3 style="margin-top:0; color: #0d6efd;">💾 テンプレートの保存</h3>
-            
             <div class="form-group" style="margin-bottom: 15px;">
                 <label>✨ 新しく保存する</label>
                 <div style="display:flex; gap:5px;">
@@ -221,14 +249,9 @@
                     <button class="btn btn-primary" style="padding: 8px;" onclick="createNewTemplate()">保存</button>
                 </div>
             </div>
-
             <div style="margin: 20px 0; border-bottom: 1px dashed #ccc;"></div>
-
             <label style="color: #6c757d; font-size:12px; font-weight:bold;">🔄 既存のテンプレートを上書き</label>
-            <div id="template-overwrite-list" style="max-height: 150px; overflow-y: auto; margin-top: 5px; border: 1px solid #eee; padding: 5px; border-radius: 4px; background: #fcfcfc;">
-                <!-- 上書き可能なリスト -->
-            </div>
-            
+            <div id="template-overwrite-list" style="max-height: 150px; overflow-y: auto; margin-top: 5px; border: 1px solid #eee; padding: 5px; border-radius: 4px; background: #fcfcfc;"></div>
             <div style="display:flex; justify-content:flex-end; margin-top: 15px;">
                 <button class="btn btn-secondary" onclick="closeModal('template-save-modal')" style="width:auto;">キャンセル</button>
             </div>
@@ -240,32 +263,11 @@
         <div class="modal-content">
             <h3 style="margin-top:0; color: #198754;">📝 新規顧客登録</h3>
             <div class="note" style="margin-bottom:15px;">初めてご利用の方は、こちらから店舗へ情報を送信してください。</div>
-            
-            <div class="form-group">
-                <label>🔑 店舗の予約受付ID</label>
-                <input type="text" id="reg-shop-id" placeholder="5桁の数字" maxlength="5">
-            </div>
-            <div class="form-group">
-                <label>💳 市民ID (下4桁など)</label>
-                <input type="text" id="reg-citizen-id" placeholder="例: 1234">
-            </div>
-            <div class="form-group">
-                <label>👤 お名前 (キャラクター名)</label>
-                <input type="text" id="reg-name" placeholder="お名前を入力">
-            </div>
-            <div class="form-group">
-                <label>📞 電話番号</label>
-                <input type="text" id="reg-phone" placeholder="例: 123-4567">
-            </div>
-            <div class="form-group">
-                <label>🏷️ 顧客属性</label>
-                <select id="reg-type">
-                    <option value="white">白市民</option>
-                    <option value="black">黒市民</option>
-                    <option value="corp">法人</option>
-                </select>
-            </div>
-            
+            <div class="form-group"><label>🔑 店舗の予約受付ID</label><input type="text" id="reg-shop-id" placeholder="5桁の数字" maxlength="5"></div>
+            <div class="form-group"><label>💳 市民ID (下4桁など)</label><input type="text" id="reg-citizen-id" placeholder="例: 1234"></div>
+            <div class="form-group"><label>👤 お名前 (キャラクター名)</label><input type="text" id="reg-name" placeholder="お名前を入力"></div>
+            <div class="form-group"><label>📞 電話番号</label><input type="text" id="reg-phone" placeholder="例: 123-4567"></div>
+            <div class="form-group"><label>🏷️ 顧客属性</label><select id="reg-type"><option value="white">白市民</option><option value="black">黒市民</option><option value="corp">法人</option></select></div>
             <div style="margin-top:25px; display:flex; justify-content:flex-end; gap:10px;">
                 <button class="btn btn-secondary" onclick="closeModal('register-modal')" style="width:auto;">キャンセル</button>
                 <button class="btn btn-primary" onclick="sendNewCustomer()" style="width:auto; background-color:#198754;">登録申請する</button>
@@ -296,18 +298,34 @@
         
         let shopHistory = JSON.parse(localStorage.getItem('rsv_app_history')) || [];
         let currentTemplates = []; 
-        let tempItemsToSave = []; // テンプレート保存用の一時データ
+        let tempItemsToSave = []; 
 
-        // ★クラウド共有される全体設定
+        let myReservationsListener = null; 
+
+        // ★ お知らせ受信用変数
+        let currentBroadcastShopId = null;
+        let broadcastsList = [];
+        let broadcastsListener = null;
+
         let globalConfig = { shopId: "", webhook: "", regWebhook: "", password: "0000" };
 
-        // 起動時の処理
         window.onload = function() {
             renderHistory();
             listenGlobalConfig(); 
+            
+            const savedCitizenId = localStorage.getItem('rsv_app_citizen_id');
+            if (savedCitizenId) {
+                document.getElementById('citizen-id').value = savedCitizenId;
+            }
+
+            // ★ 初期化時に保存済みの店舗IDがあれば裏でお知らせを取得
+            const savedShopId = localStorage.getItem('rsv_app_shop_id');
+            if (savedShopId && savedShopId.length === 5) {
+                document.getElementById('shop-id').value = savedShopId;
+                initBroadcasts(savedShopId);
+            }
         };
 
-        // Firebaseから共有設定をリアルタイムで取得する関数
         function listenGlobalConfig() {
             database.ref('rsv_app_global_config').on('value', (snap) => {
                 const data = snap.val();
@@ -322,12 +340,106 @@
                     const shopInput = document.getElementById('shop-id');
                     if (globalConfig.shopId && !shopInput.value) {
                         shopInput.value = globalConfig.shopId;
+                        initBroadcasts(globalConfig.shopId); // 設定ファイルからIDを読み込んだ場合もお知らせ取得開始
                     }
                 }
             });
         }
 
-        // モーダル操作
+        // --- ★ お知らせ(ベルマーク)関連の処理 ---
+        function onShopIdInput() {
+            const sId = document.getElementById('shop-id').value.trim();
+            if (sId.length === 5) {
+                initBroadcasts(sId); // 5桁入力されたら接続前でもお知らせを取得
+            }
+        }
+
+        function initBroadcasts(shopId) {
+            if (!shopId) return;
+            if (currentBroadcastShopId === shopId) return; // 既に同じ店舗を監視中ならスルー
+            currentBroadcastShopId = shopId;
+            
+            if (broadcastsListener) { broadcastsListener.off(); }
+            
+            const ref = database.ref('public_broadcasts/' + shopId);
+            broadcastsListener = ref.orderByChild('createdAt').limitToLast(10).on('value', snap => {
+                const data = snap.val();
+                broadcastsList = [];
+                if (data) {
+                    Object.keys(data).forEach(key => broadcastsList.push({id: key, ...data[key]}));
+                    broadcastsList.sort((a,b) => b.createdAt - a.createdAt);
+                }
+                updateBellBadge();
+                
+                // モーダルが開いていればリアルタイム更新
+                if (document.getElementById('broadcast-modal').style.display === 'flex') {
+                    renderBroadcastList();
+                }
+            });
+        }
+
+        function updateBellBadge() {
+            const lastRead = parseInt(localStorage.getItem('rsv_app_last_read_broadcast_' + currentBroadcastShopId) || '0');
+            let unreadCount = 0;
+            broadcastsList.forEach(b => {
+                if (b.createdAt > lastRead) unreadCount++;
+            });
+            
+            const badge = document.getElementById('bell-badge');
+            if (unreadCount > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = unreadCount;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function openBroadcastModal() {
+            if (!currentBroadcastShopId) {
+                alert("先に店舗の予約受付ID(5桁)を入力してください。");
+                return;
+            }
+            
+            // 開いた時間を「既読時間」として保存
+            if (broadcastsList.length > 0) {
+                localStorage.setItem('rsv_app_last_read_broadcast_' + currentBroadcastShopId, broadcastsList[0].createdAt);
+            } else {
+                localStorage.setItem('rsv_app_last_read_broadcast_' + currentBroadcastShopId, Date.now());
+            }
+            updateBellBadge(); // バッジを消す
+            
+            renderBroadcastList();
+            document.getElementById('broadcast-modal').style.display = 'flex';
+        }
+
+        function renderBroadcastList() {
+            const listDiv = document.getElementById('broadcast-list');
+            listDiv.innerHTML = '';
+            
+            if (broadcastsList.length === 0) {
+                listDiv.innerHTML = '<div style="text-align:center; font-size:12px; color:#999; padding: 10px;">お知らせはありません</div>';
+                return;
+            }
+            
+            broadcastsList.forEach(b => {
+                const d = new Date(b.createdAt);
+                const dateStr = `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                
+                const safeTitle = b.title ? b.title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : '';
+                const safeBody = b.body ? b.body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, '<br>') : '';
+
+                const div = document.createElement('div');
+                div.style.marginBottom = "15px";
+                div.style.borderBottom = "1px dashed #ccc";
+                div.style.paddingBottom = "10px";
+                div.innerHTML = `
+                    <div style="font-weight:bold; color:#d32f2f; font-size:14px;">${safeTitle} <span style="font-size:11px; color:#6c757d; font-weight:normal;">(${dateStr})</span></div>
+                    <div style="font-size:13px; color:#333; margin-top:5px; line-height:1.4;">${safeBody}</div>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
         // --- 店舗履歴の描画 ---
@@ -358,6 +470,7 @@
 
         function selectHistory(id) {
             document.getElementById('shop-id').value = id;
+            initBroadcasts(id); // 履歴タップ時にもお知らせを取得
             connectToShop();
         }
 
@@ -380,7 +493,7 @@
             }
         }
 
-        // --- ★ローカルテンプレのクラウド移行関数 ---
+        // --- テンプレート関連処理 ---
         async function migrateLocalTemplates(cid) {
             let migrated = false;
             let templates = [];
@@ -422,7 +535,6 @@
             return templates;
         }
 
-        // --- ★テンプレート（クラウド保存）機能 ---
         async function saveTemplate() {
             const cid = document.getElementById('citizen-id').value.trim();
             if (!cid) return alert("先に市民IDを入力してください。");
@@ -450,12 +562,10 @@
             if (hasDuplicate) return alert("❌ 同じアイテムが複数回選択されています。\n1つの行にまとめて個数を入力してから保存してください。");
             if (templateItems.length === 0) return alert("保存するアイテムがありません。");
 
-            tempItemsToSave = templateItems; // 一時保存
+            tempItemsToSave = templateItems; 
 
             try {
-                // クラウドから既存テンプレを取得し、ローカルデータがあれば移行する
                 const templates = await migrateLocalTemplates(cid);
-
                 const overwriteList = document.getElementById('template-overwrite-list');
                 overwriteList.innerHTML = '';
                 if(templates.length === 0) {
@@ -675,6 +785,7 @@
             } catch(e) { alert("送信に失敗しました"); }
         }
 
+        // --- 店舗に接続 ---
         async function connectToShop() {
             const shopId = document.getElementById('shop-id').value.trim();
             if (!/^\d{5}$/.test(shopId)) return alert("5桁の数字を入力してください。");
@@ -684,12 +795,17 @@
                 const shopInfo = snap.val();
                 const alertBox = document.getElementById('shop-info-alert');
                 const formBox = document.getElementById('reservation-form');
+                
                 if (!shopInfo) {
                     alertBox.className = 'alert-danger'; alertBox.innerHTML = "❌ 店舗が見つかりません。";
                     alertBox.style.display = 'block'; formBox.style.display = 'none';
+                    if(myReservationsListener) { myReservationsListener.off(); myReservationsListener = null; }
+                    document.getElementById('my-reservations-card').style.display = 'none';
                 } else if (shopInfo.status === 'maintenance') {
                     alertBox.className = 'alert-danger'; alertBox.innerHTML = `🚧 店舗「${shopInfo.name}」は現在メンテナンス中（予約受付停止）です。`;
                     alertBox.style.display = 'block'; formBox.style.display = 'none';
+                    if(myReservationsListener) { myReservationsListener.off(); myReservationsListener = null; }
+                    document.getElementById('my-reservations-card').style.display = 'none';
                 } else {
                     alertBox.className = 'alert-success'; alertBox.innerHTML = `✅ 店舗「${shopInfo.name}」に接続しました。`;
                     alertBox.style.display = 'block';
@@ -702,8 +818,9 @@
                     checkCustomerRank(); 
                     addItemRow();
                     formBox.style.display = 'block';
+                    
+                    initBroadcasts(shopId);
 
-                    // 履歴に保存
                     if (!shopHistory.find(h => h.id === shopId)) {
                         shopHistory.push({ id: shopId, name: shopInfo.name });
                         localStorage.setItem('rsv_app_history', JSON.stringify(shopHistory));
@@ -714,8 +831,11 @@
             document.getElementById('btn-connect').innerText = "接続";
         }
 
+        // --- 顧客情報の反映と予約履歴の取得 ---
         function checkCustomerRank() {
             const cid = document.getElementById('citizen-id').value.trim();
+            localStorage.setItem('rsv_app_citizen_id', cid); 
+            
             let rankId = 'rank_none';
             let cusName = '';
             let type = 'white'; 
@@ -755,6 +875,83 @@
             });
 
             document.querySelectorAll('.item-qty').forEach(input => enforceLimit(input));
+
+            // 自分の予約履歴（と返信）を取得・表示
+            loadMyReservations();
+        }
+
+        function loadMyReservations() {
+            const shopId = document.getElementById('shop-id').value.trim();
+            const cid = document.getElementById('citizen-id').value.trim();
+            
+            if (myReservationsListener) {
+                myReservationsListener.off();
+                myReservationsListener = null;
+            }
+            
+            if (!shopId || !cid) {
+                document.getElementById('my-reservations-card').style.display = 'none';
+                return;
+            }
+            
+            const ref = database.ref('public_reservations/' + shopId);
+            myReservationsListener = ref.orderByChild('citizenId').equalTo(cid).on('value', snap => {
+                const data = snap.val();
+                const listDiv = document.getElementById('my-reservations-list');
+                listDiv.innerHTML = '';
+                
+                if (!data) {
+                    document.getElementById('my-reservations-card').style.display = 'none';
+                    return;
+                }
+                
+                document.getElementById('my-reservations-card').style.display = 'block';
+                
+                let rsvArray = [];
+                Object.keys(data).forEach(key => rsvArray.push({id: key, ...data[key]}));
+                rsvArray.sort((a,b) => b.createdAt - a.createdAt); // 最新順
+                
+                rsvArray.forEach(rsv => {
+                    const d = new Date(rsv.createdAt);
+                    const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                    
+                    let statusHtml = '';
+                    if(rsv.status === 'new') statusHtml = '<span class="rsv-status-new">🟡 未対応</span>';
+                    else if(rsv.status === 'doing') statusHtml = '<span class="rsv-status-doing">🔵 対応中</span>';
+                    else if(rsv.status === 'done') statusHtml = '<span class="rsv-status-done">🟢 完了</span>';
+                    else statusHtml = '<span class="rsv-status-new">🟡 未対応</span>';
+                    
+                    // 店員からのメッセージ（返信）がある場合
+                    let replyHtml = '';
+                    if(rsv.reply && rsv.reply.trim() !== '') {
+                        const rd = rsv.replyAt ? new Date(rsv.replyAt) : new Date();
+                        const rdateStr = `${String(rd.getMonth()+1).padStart(2,'0')}/${String(rd.getDate()).padStart(2,'0')} ${String(rd.getHours()).padStart(2,'0')}:${String(rd.getMinutes()).padStart(2,'0')}`;
+                        
+                        const safeReply = rsv.reply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, '<br>');
+                        replyHtml = `
+                            <div class="rsv-reply">
+                                <div style="font-size:11px; color:#0d6efd; font-weight:bold; margin-bottom:4px;">🏪 店舗からのメッセージ (${rdateStr})</div>
+                                <div style="white-space: pre-wrap;">${safeReply}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    const safeDetail = rsv.detail ? rsv.detail.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\n/g, '<br>') : '';
+
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'rsv-item';
+                    itemDiv.innerHTML = `
+                        <div class="rsv-header">
+                            <span>${dateStr}</span>
+                            <span>${statusHtml}</span>
+                        </div>
+                        <div style="margin-bottom: 5px;">${safeDetail}</div>
+                        <div style="font-weight:bold; text-align:right; color:#d63384;">合計: ${rsv.totalAmount.toLocaleString()}円</div>
+                        ${replyHtml}
+                    `;
+                    listDiv.appendChild(itemDiv);
+                });
+            });
         }
 
         function enforceLimit(input) {
@@ -775,7 +972,6 @@
                 if (currentCustomerType === 'white') price = item.priceWhite || 0;
                 else if (currentCustomerType === 'black') price = item.priceBlack || 0;
                 else if (currentCustomerType === 'corp') price = item.priceCorp || 0;
-                
                 options += `<option value="${item.name}">${item.name} (${price.toLocaleString()}円)</option>`;
             });
             selectElement.innerHTML = options;
@@ -806,23 +1002,14 @@
             if (!citizenId) return alert("市民IDを入力してください。");
             if (!name) return alert("お名前を入力してください。");
 
-            let itemsDetail = [];
-            let totalAmount = 0;
-            
-            let selectedItemNames = new Set();
-            let hasDuplicate = false;
+            let itemsDetail = []; let totalAmount = 0; let selectedItemNames = new Set(); let hasDuplicate = false;
 
             const itemRows = document.querySelectorAll('.item-row');
             for(let i=0; i<itemRows.length; i++) {
-                const row = itemRows[i];
-                const iName = row.querySelector('.item-name').value;
-                const iQty = parseInt(row.querySelector('.item-qty').value) || 0;
+                const row = itemRows[i]; const iName = row.querySelector('.item-name').value; const iQty = parseInt(row.querySelector('.item-qty').value) || 0;
                 
                 if (iName && iQty > 0) {
-                    if (selectedItemNames.has(iName)) {
-                        hasDuplicate = true;
-                        break;
-                    }
+                    if (selectedItemNames.has(iName)) { hasDuplicate = true; break; }
                     selectedItemNames.add(iName);
 
                     const itemObj = availableItems.find(item => item.name === iName);
@@ -832,8 +1019,7 @@
                         else if (currentCustomerType === 'black') price = itemObj.priceBlack || 0;
                         else if (currentCustomerType === 'corp') price = itemObj.priceCorp || 0;
                     }
-                    totalAmount += (price * iQty);
-                    itemsDetail.push(`・${iName} x ${iQty}個`);
+                    totalAmount += (price * iQty); itemsDetail.push(`・${iName} x ${iQty}個`);
                 }
             }
 
@@ -842,52 +1028,23 @@
 
             const detailText = `【購入希望アイテム】\n${itemsDetail.join('\n')}\n\n【備考】\n${note || 'なし'}`;
 
-            document.getElementById('submit-btn').style.display = 'none';
-            document.getElementById('loading').style.display = 'block';
+            document.getElementById('submit-btn').style.display = 'none'; document.getElementById('loading').style.display = 'block';
 
             const reserveData = {
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
-                name: name,
-                citizenId: citizenId,
-                rankId: currentCustomerRankId,
-                type: currentCustomerType,
-                totalAmount: totalAmount,
-                detail: detailText,
-                status: 'new'
+                createdAt: firebase.database.ServerValue.TIMESTAMP, name: name, citizenId: citizenId, rankId: currentCustomerRankId, type: currentCustomerType,
+                totalAmount: totalAmount, detail: detailText, status: 'new', reply: '', replyAt: null
             };
 
             try {
                 await database.ref('public_reservations/' + shopId).push(reserveData);
-                
                 const webhookUrl = globalConfig.webhook;
                 if (webhookUrl) {
                     const rankDef = customRanks.find(r => r.id === currentCustomerRankId) || { name: '未確認' };
-                    const embed = {
-                        title: `📅 新しい予約・依頼が届きました！`,
-                        color: 3447003,
-                        description: `**お名前:** ${name} [${rankDef.name}]\n**市民ID:** ${citizenId}\n**合計金額:** ${totalAmount.toLocaleString()} 円\n\n**📝 ご用件・希望内容:**\n${note || 'なし'}\n\n**🛒 アイテム詳細:**\n${itemsDetail.join('\n')}`,
-                        timestamp: new Date().toISOString()
-                    };
-                    
-                    try {
-                        await fetch(webhookUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ embeds: [embed] })
-                        });
-                    } catch(e) {
-                        console.error("Webhook送信エラー", e);
-                    }
+                    const embed = { title: `📅 新しい予約・依頼が届きました！`, color: 3447003, description: `**お名前:** ${name} [${rankDef.name}]\n**市民ID:** ${citizenId}\n**合計金額:** ${totalAmount.toLocaleString()} 円\n\n**📝 ご用件・希望内容:**\n${note || 'なし'}\n\n**🛒 アイテム詳細:**\n${itemsDetail.join('\n')}`, timestamp: new Date().toISOString() };
+                    try { await fetch(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [embed] }) }); } catch(e) { console.error("Webhook送信エラー", e); }
                 }
-
-                alert("✅ 予約を送信しました！店舗からのご連絡をお待ちください。");
-                location.reload(); 
-            } catch (error) {
-                alert("送信に失敗しました。");
-            } finally {
-                document.getElementById('submit-btn').style.display = 'block';
-                document.getElementById('loading').style.display = 'none';
-            }
+                alert("✅ 予約を送信しました！店舗からのご連絡をお待ちください。"); location.reload(); 
+            } catch (error) { alert("送信に失敗しました。"); } finally { document.getElementById('submit-btn').style.display = 'block'; document.getElementById('loading').style.display = 'none'; }
         }
     </script>
 </body>
