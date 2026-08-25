@@ -18,7 +18,7 @@
         .card-body { padding: 25px; }
         .form-group { margin-bottom: 20px; }
         label { display: block; font-size: 13px; font-weight: bold; color: #495057; margin-bottom: 8px; }
-        input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; transition: 0.2s; background-color: #fff; }
+        input[type="text"], input[type="password"], input[type="number"], select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; transition: 0.2s; background-color: #fff; }
         input:focus, select:focus, textarea:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
         .id-group { display: flex; gap: 10px; }
         .id-input { flex-grow: 1; font-weight: bold; letter-spacing: 2px; font-size: 16px !important; text-align: center; }
@@ -41,9 +41,29 @@
         .rank-badge { font-size: 11px; background-color: #e9ecef; padding: 4px 8px; border-radius: 20px; color: #495057; display: inline-block; font-weight: bold; }
         .type-badge { font-size: 11px; background-color: #fff3cd; padding: 4px 8px; border-radius: 20px; color: #856404; display: inline-block; font-weight: bold; margin-right: 5px;}
 
+        /* 左下の歯車ボタン */
+        .config-btn {
+            position: fixed; bottom: 20px; left: 20px;
+            background-color: #343a40; color: white;
+            width: 45px; height: 45px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 20px; cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 100;
+            transition: 0.3s;
+        }
+        .config-btn:hover { background-color: #495057; transform: scale(1.1); }
+
+        /* リスト項目用CSS */
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 5px; font-size: 13px; }
+        .history-item-name { flex-grow: 1; font-weight: bold; cursor: pointer; color: #0d6efd; }
+        .history-item-name:hover { text-decoration: underline; }
+        .history-actions button { padding: 4px 8px; font-size: 11px; margin-left: 5px; cursor: pointer; border: none; border-radius: 3px; font-weight:bold;}
+        .btn-edit { background: #ffc107; color: #000; }
+        .btn-del { background: #dc3545; color: #fff; }
+
         /* モーダル */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 320px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 340px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto;}
     </style>
 </head>
 <body>
@@ -61,9 +81,14 @@
                     <label>🔑 店舗の予約受付ID (5桁)</label>
                     <div class="id-group">
                         <input type="text" id="shop-id" class="id-input" placeholder="例: 12345" maxlength="5">
-                        <button class="btn btn-primary" id="btn-connect" onclick="connectToShop()">店舗情報を取得</button>
+                        <button class="btn btn-primary" id="btn-connect" onclick="connectToShop()">接続</button>
                     </div>
-                    <div class="note">※店舗から指定された5桁のIDを入力して「店舗情報を取得」を押してください。</div>
+                    
+                    <!-- 店舗の履歴表示枠 -->
+                    <div id="history-container" style="margin-top: 15px; display: none;">
+                        <label style="color: #6c757d; font-size:12px;">🕒 過去に利用した店舗履歴</label>
+                        <div id="history-list"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -91,7 +116,15 @@
                 </div>
 
                 <div class="form-group">
-                    <label>📦 購入するアイテムと個数</label>
+                    <!-- テンプレート（クラウド共有）機能 -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <label style="margin:0;">📦 購入するアイテムと個数</label>
+                        <div style="display:flex; gap:5px;">
+                            <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="openTemplateModal()">☁️ テンプレ呼出</button>
+                            <button type="button" class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="saveTemplate()">☁️ テンプレ保存</button>
+                        </div>
+                    </div>
+                    
                     <div id="items-container"></div>
                     <button type="button" class="btn btn-secondary" style="margin-top: 10px; width: 100%;" onclick="addItemRow()">＋ 購入アイテムを追加する</button>
                 </div>
@@ -103,6 +136,76 @@
 
                 <button id="submit-btn" class="btn btn-success" onclick="sendReservation()">予約を送信する</button>
                 <div id="loading" style="display:none; text-align:center; font-weight:bold; color:#0d6efd; margin-top:15px;">送信中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 左下の歯車ボタン -->
+    <div class="config-btn" onclick="openConfigAuth()">⚙️</div>
+
+    <!-- 歯車ボタンのパスワード認証モーダル -->
+    <div id="config-auth-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color: #343a40;">🔒 管理者認証</h3>
+            <div class="note" style="margin-bottom:15px;">設定画面に入るためのパスワードを入力してください。<br>(初期パスワード: 0000)</div>
+            <input type="password" id="config-auth-pass" placeholder="パスワードを入力">
+            <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeModal('config-auth-modal')" style="width:auto;">キャンセル</button>
+                <button class="btn btn-primary" onclick="verifyConfigPass()" style="width:auto;">認証</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定モーダル (クラウド同期版) -->
+    <div id="config-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color: #0d6efd;">⚙️ クラウド設定 (全体共有)</h3>
+            <div class="note" style="margin-bottom:15px; color:#0d6efd; font-weight:bold;">この設定はクラウドに保存され、どの端末・ブラウザから予約を開いても適用・同期されます。</div>
+            
+            <div class="form-group">
+                <label>📍 固定する店舗ID (省略可)</label>
+                <input type="text" id="conf-shop-id" placeholder="例: 12345" maxlength="5">
+                <div class="note">設定しておくと、画面を開いた時に全端末で自動入力されます。</div>
+            </div>
+            
+            <div class="form-group">
+                <label>🔗 予約通知用 Discord Webhook</label>
+                <input type="password" id="conf-webhook" placeholder="https://discord.com/api/webhooks/...">
+                <div class="note">予約が送信された際、このURL宛に自動で通知を飛ばします。</div>
+            </div>
+
+            <!-- ★追加：新規登録通知用Webhook -->
+            <div class="form-group">
+                <label>🔗 新規登録通知用 Discord Webhook</label>
+                <input type="password" id="conf-reg-webhook" placeholder="https://discord.com/api/webhooks/...">
+                <div class="note">新規顧客の登録申請が送信された際、このURL宛に通知します。</div>
+            </div>
+
+            <div class="form-group">
+                <label>🔑 管理者パスワードの変更</label>
+                <input type="text" id="conf-pass" placeholder="新しいパスワード">
+                <div class="note">この画面に入るためのパスワードです。</div>
+            </div>
+            
+            <div style="margin-top:25px; display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-secondary" onclick="closeModal('config-modal')" style="width:auto;">キャンセル</button>
+                <button class="btn btn-primary" onclick="saveConfig()" style="width:auto;">保存して閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- テンプレート一覧モーダル -->
+    <div id="template-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 360px;">
+            <h3 style="margin-top:0; color: #0d6efd;">☁️ マイテンプレート一覧</h3>
+            <div class="note" style="margin-bottom:10px;">適用したいテンプレートを選んでください。</div>
+            
+            <div id="template-list" style="max-height: 250px; overflow-y: auto; margin-bottom: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                <!-- ここにテンプレート一覧が展開される -->
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="closeModal('template-modal')" style="width:auto;">閉じる</button>
             </div>
         </div>
     </div>
@@ -165,14 +268,302 @@
         let currentCustomerRankId = 'rank_none';
         let currentCustomerType = 'white'; 
         let currentLimit = Infinity; 
+        
+        let shopHistory = JSON.parse(localStorage.getItem('rsv_app_history')) || [];
+        let currentTemplates = []; 
+
+        // ★クラウド共有される全体設定
+        let globalConfig = { shopId: "", webhook: "", regWebhook: "", password: "0000" };
+
+        // 起動時の処理
+        window.onload = function() {
+            renderHistory();
+            listenGlobalConfig(); 
+        };
+
+        // Firebaseから共有設定をリアルタイムで取得する関数
+        function listenGlobalConfig() {
+            database.ref('rsv_app_global_config').on('value', (snap) => {
+                const data = snap.val();
+                if (data) {
+                    globalConfig = {
+                        shopId: data.shopId || "",
+                        webhook: data.webhook || "",
+                        regWebhook: data.regWebhook || "",
+                        password: data.password || "0000"
+                    };
+                    
+                    const shopInput = document.getElementById('shop-id');
+                    if (globalConfig.shopId && !shopInput.value) {
+                        shopInput.value = globalConfig.shopId;
+                    }
+                }
+            });
+        }
 
         // モーダル操作
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- 店舗履歴の描画 ---
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            
+            if (shopHistory.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            shopHistory.forEach(h => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <div class="history-item-name" onclick="selectHistory('${h.id}')">🏬 ${h.name} <span style="color:#6c757d; font-size:11px;">(${h.id})</span></div>
+                    <div class="history-actions">
+                        <button class="btn-edit" onclick="editHistory('${h.id}')">編集</button>
+                        <button class="btn-del" onclick="deleteHistory('${h.id}')">削除</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function selectHistory(id) {
+            document.getElementById('shop-id').value = id;
+            connectToShop();
+        }
+
+        function editHistory(id) {
+            const item = shopHistory.find(h => h.id === id);
+            if (!item) return;
+            const newName = prompt(`「${item.name}」の新しい表示名を入力してください:`, item.name);
+            if (newName && newName.trim() !== '') {
+                item.name = newName.trim();
+                localStorage.setItem('rsv_app_history', JSON.stringify(shopHistory));
+                renderHistory();
+            }
+        }
+
+        function deleteHistory(id) {
+            if (confirm('この店舗履歴を削除しますか？')) {
+                shopHistory = shopHistory.filter(h => h.id !== id);
+                localStorage.setItem('rsv_app_history', JSON.stringify(shopHistory));
+                renderHistory();
+            }
+        }
+
+        // --- ★テンプレート（クラウド保存）機能 ---
+        async function saveTemplate() {
+            const cid = document.getElementById('citizen-id').value.trim();
+            if (!cid) return alert("先に市民IDを入力してください。");
+
+            let templateItems = [];
+            let selectedItemNames = new Set();
+            let hasDuplicate = false;
+
+            const rows = document.querySelectorAll('.item-row');
+            for(let i=0; i<rows.length; i++) {
+                const row = rows[i];
+                const iName = row.querySelector('.item-name').value;
+                const iQty = parseInt(row.querySelector('.item-qty').value) || 0;
+                
+                if (iName && iQty > 0) {
+                    if (selectedItemNames.has(iName)) {
+                        hasDuplicate = true;
+                        break;
+                    }
+                    selectedItemNames.add(iName);
+                    templateItems.push({ name: iName, qty: iQty });
+                }
+            }
+
+            if (hasDuplicate) return alert("❌ 同じアイテムが複数回選択されています。\n1つの行にまとめて個数を入力してから保存してください。");
+            if (templateItems.length === 0) return alert("保存するアイテムがありません。");
+
+            const tName = prompt("このテンプレートの名前を入力してください:\n(例: いつもの武器セット, 回復用など)");
+            if (!tName || tName.trim() === "") return;
+
+            const tplId = 'tpl_' + Date.now();
+            try {
+                // クラウドへ保存
+                await database.ref('public_customer_templates/' + cid + '/' + tplId).set({
+                    id: tplId,
+                    name: tName.trim(),
+                    items: templateItems
+                });
+                alert(`✅ テンプレート「${tName}」をクラウドに保存しました！\n別の端末でも市民IDを入力すれば呼び出せます。`);
+            } catch(e) {
+                alert("保存に失敗しました。");
+            }
+        }
+
+        async function openTemplateModal() {
+            const cid = document.getElementById('citizen-id').value.trim();
+            if (!cid) return alert("先に市民IDを入力してください。");
+
+            try {
+                // クラウドからテンプレート一覧を取得
+                const snap = await database.ref('public_customer_templates/' + cid).once('value');
+                const data = snap.val();
+                let templates = [];
+                if (data) {
+                    Object.keys(data).forEach(key => templates.push(data[key]));
+                }
+
+                // 過去にローカル保存していたテンプレがあれば、クラウドへ自動移行する
+                let localChanged = false;
+                const oldSavedSingle = localStorage.getItem('rsv_template_' + cid);
+                if (oldSavedSingle) {
+                    const oldData = JSON.parse(oldSavedSingle);
+                    if (oldData.length > 0) {
+                        const newId = 'tpl_' + Date.now() + Math.floor(Math.random()*1000);
+                        await database.ref('public_customer_templates/' + cid + '/' + newId).set({ id: newId, name: '以前のテンプレート', items: oldData });
+                        templates.push({ id: newId, name: '以前のテンプレート', items: oldData });
+                    }
+                    localStorage.removeItem('rsv_template_' + cid);
+                    localChanged = true;
+                }
+
+                const oldSavedMulti = localStorage.getItem('rsv_templates_' + cid);
+                if (oldSavedMulti) {
+                    const localTpls = JSON.parse(oldSavedMulti);
+                    for (let t of localTpls) {
+                        const newId = 'tpl_' + Date.now() + Math.floor(Math.random()*1000);
+                        await database.ref('public_customer_templates/' + cid + '/' + newId).set({ id: newId, name: t.name, items: t.items });
+                        templates.push({ id: newId, name: t.name, items: t.items });
+                    }
+                    localStorage.removeItem('rsv_templates_' + cid);
+                    localChanged = true;
+                }
+
+                if (localChanged && templates.length > 0) {
+                    alert("💡 この端末に保存されていたテンプレートをクラウドに移行しました！");
+                }
+
+                if (templates.length === 0) return alert("保存されているテンプレートがありません。\n先に「テンプレ保存」で追加してください。");
+
+                renderTemplateList(templates, cid);
+                document.getElementById('template-modal').style.display = 'flex';
+            } catch(e) {
+                alert("テンプレートの取得に失敗しました。");
+            }
+        }
+
+        function renderTemplateList(templates, cid) {
+            currentTemplates = templates;
+            const listDiv = document.getElementById('template-list');
+            listDiv.innerHTML = '';
+
+            templates.forEach(t => {
+                const itemsSummary = t.items.map(i => `${i.name}(${i.qty})`).join(', ');
+
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.style.flexDirection = 'column';
+                div.style.alignItems = 'flex-start';
+                
+                div.innerHTML = `
+                    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: #0d6efd; font-size: 14px;">📄 ${t.name}</span>
+                        <div>
+                            <button class="btn btn-success" style="padding: 4px 8px; font-size: 11px; margin-right: 5px; width:auto; display:inline-block; margin-top:0;" onclick="applyTemplate('${t.id}')">適用</button>
+                            <button class="btn-del" style="padding: 4px 8px; font-size: 11px; display:inline-block;" onclick="deleteTemplate('${cid}', '${t.id}')">削除</button>
+                        </div>
+                    </div>
+                    <div style="font-size: 11px; color: #6c757d; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%;">
+                        ${itemsSummary}
+                    </div>
+                `;
+                listDiv.appendChild(div);
+            });
+        }
+
+        function applyTemplate(tplId) {
+            const tpl = currentTemplates.find(t => t.id === tplId);
+            if (!tpl) return;
+
+            document.getElementById('items-container').innerHTML = ''; 
+            
+            tpl.items.forEach(item => {
+                addItemRow(item.name, item.qty);
+            });
+            
+            document.querySelectorAll('.item-qty').forEach(input => enforceLimit(input));
+            closeModal('template-modal');
+        }
+
+        async function deleteTemplate(cid, tplId) {
+            if (!confirm("このテンプレートを削除しますか？")) return;
+            
+            try {
+                await database.ref('public_customer_templates/' + cid + '/' + tplId).remove();
+                currentTemplates = currentTemplates.filter(t => t.id !== tplId);
+                
+                if (currentTemplates.length === 0) {
+                    closeModal('template-modal');
+                } else {
+                    renderTemplateList(currentTemplates, cid);
+                }
+            } catch(e) {
+                alert("削除に失敗しました。");
+            }
+        }
+
+        // --- 歯車ボタンの設定関連 ---
+        function openConfigAuth() {
+            document.getElementById('config-auth-pass').value = '';
+            document.getElementById('config-auth-modal').style.display = 'flex';
+        }
+
+        function verifyConfigPass() {
+            const input = document.getElementById('config-auth-pass').value;
+            const correct = globalConfig.password; 
+            
+            if (input === correct) {
+                closeModal('config-auth-modal');
+                document.getElementById('conf-shop-id').value = globalConfig.shopId;
+                document.getElementById('conf-webhook').value = globalConfig.webhook;
+                document.getElementById('conf-reg-webhook').value = globalConfig.regWebhook; 
+                document.getElementById('conf-pass').value = correct;
+                document.getElementById('config-modal').style.display = 'flex';
+            } else {
+                alert("❌ パスワードが違います。");
+            }
+        }
+
+        async function saveConfig() {
+            const sId = document.getElementById('conf-shop-id').value.trim();
+            const wh = document.getElementById('conf-webhook').value.trim();
+            const rwh = document.getElementById('conf-reg-webhook').value.trim(); 
+            const pw = document.getElementById('conf-pass').value.trim();
+
+            if (!pw) return alert("パスワードは空にできません。");
+            
+            try {
+                await database.ref('rsv_app_global_config').set({
+                    shopId: sId,
+                    webhook: wh,
+                    regWebhook: rwh, 
+                    password: pw
+                });
+                alert("✅ クラウドに設定を保存しました！\n他の端末にも自動で反映されます。");
+                closeModal('config-modal');
+
+                if (sId) {
+                    document.getElementById('shop-id').value = sId;
+                }
+            } catch(e) {
+                alert("保存に失敗しました");
+            }
+        }
+
         function openRegisterModal() {
             const currentShopId = document.getElementById('shop-id').value;
             if (currentShopId) document.getElementById('reg-shop-id').value = currentShopId;
             document.getElementById('register-modal').style.display = 'flex';
         }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
         // 新規登録を送信
         async function sendNewCustomer() {
@@ -186,10 +577,21 @@
             if (!citizenId || !name || !phone) return alert("すべての項目を入力してください。");
 
             try {
-                // POS側で監視している public_new_customers へリクエストを投げる
                 await database.ref('public_new_customers/' + shopId).push({
                     citizenId: citizenId, name: name, phone: phone, type: type, timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
+                
+                const webhookUrl = globalConfig.regWebhook;
+                if (webhookUrl) {
+                    const embed = {
+                        title: `🔔 新規顧客の登録申請が届きました！`,
+                        color: 16753920,
+                        description: `**お名前:** ${name}\n**市民ID:** ${citizenId}\n**電話番号:** ${phone}\n**属性:** ${type === 'white' ? '白市民' : (type === 'black' ? '黒市民' : '法人')}`,
+                        timestamp: new Date().toISOString()
+                    };
+                    fetch(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ embeds: [embed] }) }).catch(e=>console.log(e));
+                }
+
                 alert("登録申請を送信しました！店舗側で確認され次第、市民IDを入力して予約が可能になります。");
                 document.getElementById('shop-id').value = shopId;
                 closeModal('register-modal');
@@ -223,9 +625,16 @@
                     checkCustomerRank(); 
                     addItemRow();
                     formBox.style.display = 'block';
+
+                    // 履歴に保存
+                    if (!shopHistory.find(h => h.id === shopId)) {
+                        shopHistory.push({ id: shopId, name: shopInfo.name });
+                        localStorage.setItem('rsv_app_history', JSON.stringify(shopHistory));
+                        renderHistory();
+                    }
                 }
             } catch(e) { alert("通信エラーが発生しました。"); }
-            document.getElementById('btn-connect').innerText = "店舗情報を取得";
+            document.getElementById('btn-connect').innerText = "接続";
         }
 
         function checkCustomerRank() {
@@ -295,17 +704,19 @@
             selectElement.innerHTML = options;
         }
 
-        function addItemRow() {
+        function addItemRow(defaultName = '', defaultQty = '') {
             const container = document.getElementById('items-container');
             const row = document.createElement('div');
             row.className = 'item-row';
             
             row.innerHTML = `
                 <select class="item-select item-name"></select>
-                <input type="number" class="qty-input item-qty" placeholder="個数" min="1" oninput="enforceLimit(this)">
+                <input type="number" class="qty-input item-qty" placeholder="個数" min="1" value="${defaultQty}" oninput="enforceLimit(this)">
                 <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()">削除</button>
             `;
-            updateSelectOptions(row.querySelector('.item-name'));
+            const select = row.querySelector('.item-name');
+            updateSelectOptions(select);
+            if (defaultName) select.value = defaultName;
             container.appendChild(row);
         }
 
@@ -320,13 +731,25 @@
 
             let itemsDetail = [];
             let totalAmount = 0;
+            
+            // ★重複チェック
+            let selectedItemNames = new Set();
+            let hasDuplicate = false;
 
-            document.querySelectorAll('.item-row').forEach(row => {
+            const itemRows = document.querySelectorAll('.item-row');
+            for(let i=0; i<itemRows.length; i++) {
+                const row = itemRows[i];
                 const iName = row.querySelector('.item-name').value;
                 const iQty = parseInt(row.querySelector('.item-qty').value) || 0;
                 
                 if (iName && iQty > 0) {
-                    const itemObj = availableItems.find(i => i.name === iName);
+                    if (selectedItemNames.has(iName)) {
+                        hasDuplicate = true;
+                        break;
+                    }
+                    selectedItemNames.add(iName);
+
+                    const itemObj = availableItems.find(item => item.name === iName);
                     let price = 0;
                     if (itemObj) {
                         if (currentCustomerType === 'white') price = itemObj.priceWhite || 0;
@@ -336,7 +759,9 @@
                     totalAmount += (price * iQty);
                     itemsDetail.push(`・${iName} x ${iQty}個`);
                 }
-            });
+            }
+
+            if (hasDuplicate) return alert("❌ 同じアイテムが複数回選択されています。\n1つの行にまとめて個数を入力してください。");
             if (itemsDetail.length === 0) return alert("購入するアイテムを1つ以上選択・入力してください。");
 
             const detailText = `【購入希望アイテム】\n${itemsDetail.join('\n')}\n\n【備考】\n${note || 'なし'}`;
@@ -357,6 +782,28 @@
 
             try {
                 await database.ref('public_reservations/' + shopId).push(reserveData);
+                
+                const webhookUrl = globalConfig.webhook;
+                if (webhookUrl) {
+                    const rankDef = customRanks.find(r => r.id === currentCustomerRankId) || { name: '未確認' };
+                    const embed = {
+                        title: `📅 新しい予約・依頼が届きました！`,
+                        color: 3447003,
+                        description: `**お名前:** ${name} [${rankDef.name}]\n**市民ID:** ${citizenId}\n**合計金額:** ${totalAmount.toLocaleString()} 円\n\n**📝 ご用件・希望内容:**\n${note || 'なし'}\n\n**🛒 アイテム詳細:**\n${itemsDetail.join('\n')}`,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    try {
+                        await fetch(webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ embeds: [embed] })
+                        });
+                    } catch(e) {
+                        console.error("Webhook送信エラー", e);
+                    }
+                }
+
                 alert("✅ 予約を送信しました！店舗からのご連絡をお待ちください。");
                 location.reload(); 
             } catch (error) {
